@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { EisenhowerMatrixData } from "./types";
+import { EisenhowerMatrixData } from "../types";
 
 export async function analyzeWithGemini(
   base64Audio: string,

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import toast from "react-hot-toast";
 import { EisenhowerMatrixData } from "../types";
 import { AIProvider } from "./PlannerApp";
 
@@ -62,7 +63,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       }, 1000);
     } catch (err) {
       console.error("Error accessing microphone:", err);
-      alert("Please allow microphone access to record voice notes.");
+      toast.error("Please allow microphone access to record voice notes.");
     }
   };
 
@@ -100,10 +101,12 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
         const matrixData: EisenhowerMatrixData = await res.json();
         onRecordingComplete(matrixData, fullDataUrl, duration);
+        toast.success("Voice note analyzed!");
         setIsProcessing(false);
       };
     } catch (err) {
       console.error("Error processing audio:", err);
+      toast.error("Failed to process audio. Please try again.");
       setIsProcessing(false);
     }
   };

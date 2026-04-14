@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { analyzeWithGemini } from "@/lib/gemini";
 import { analyzeWithGLM } from "@/lib/glm";
 import { EisenhowerMatrixData } from "@/types";
 
 export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { base64Audio, mimeType, provider } = await request.json();
 

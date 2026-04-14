@@ -3,7 +3,14 @@
     "allow": [
       "Bash(rm:*)",
       "Bash(npm install:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(npx eslint:*)",
+      "Bash(node -e ':*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx prisma:*)",
+      "Bash(node -e \"const p = require\\('./node_modules/@dnd-kit/core/package.json'\\); console.log\\('core:', p.version\\); const s = require\\('./node_modules/@dnd-kit/sortable/package.json'\\); console.log\\('sortable:', s.version\\);\")",
+      "Bash(gh auth:*)",
+      "Bash(winget install:*)"
     ]
   }
 }

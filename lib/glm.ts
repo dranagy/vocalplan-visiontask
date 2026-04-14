@@ -1,4 +1,4 @@
-import { EisenhowerMatrixData } from "./types";
+import { EisenhowerMatrixData } from "../types";
 
 const ZAI_BASE = "https://api.z.ai/api/paas/v4";
 

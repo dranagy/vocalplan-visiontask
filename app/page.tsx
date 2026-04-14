@@ -1,5 +1,10 @@
-import PlannerApp from "@/components/PlannerApp";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return <PlannerApp />;
+export default async function Home() {
+  const session = await auth();
+  if (session) {
+    redirect("/planner");
+  }
+  redirect("/login");
 }

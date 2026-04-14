@@ -4,8 +4,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import CalendarWheel from "./CalendarWheel";
 import VoiceRecorder from "./VoiceRecorder";
 import EisenhowerMatrix from "./EisenhowerMatrix";
+import MatrixSkeleton from "./MatrixSkeleton";
 import VoiceNoteList from "./VoiceNoteList";
 import { Task, TaskCategory, EisenhowerMatrixData, VoiceNote } from "../types";
+import toast from "react-hot-toast";
 
 export type AIProvider = "gemini" | "glm";
 
@@ -16,56 +18,63 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [provider, setProvider] = useState<AIProvider>("gemini");
 
-  // Load from localStorage on mount
+  // Load AI provider preference from localStorage
   useEffect(() => {
-    const savedTasks = localStorage.getItem("eisenhower_tasks_v2");
-    const savedNotes = localStorage.getItem("eisenhower_notes_v2");
     const savedProvider = localStorage.getItem("eisenhower_provider");
-    if (savedTasks) {
-      try {
-        setTasks(JSON.parse(savedTasks));
-      } catch (e) {
-        console.error("Failed to load tasks", e);
-      }
-    }
-    if (savedNotes) {
-      try {
-        setVoiceNotes(JSON.parse(savedNotes));
-      } catch (e) {
-        console.error("Failed to load notes", e);
-      }
-    }
     if (savedProvider === "gemini" || savedProvider === "glm") {
       setProvider(savedProvider);
     }
   }, []);
 
-  // Save to localStorage when state changes
-  useEffect(() => {
-    localStorage.setItem("eisenhower_tasks_v2", JSON.stringify(tasks));
-  }, [tasks]);
-
-  useEffect(() => {
-    localStorage.setItem("eisenhower_notes_v2", JSON.stringify(voiceNotes));
-  }, [voiceNotes]);
-
   useEffect(() => {
     localStorage.setItem("eisenhower_provider", provider);
   }, [provider]);
 
-  const handleRecordingComplete = (data: EisenhowerMatrixData, audioData: string, duration: string) => {
-    const dateStr = selectedDate.toISOString().split("T")[0];
+  // Register service worker
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(console.error);
+    }
+  }, []);
 
-    // 1. Save tasks
-    const newTasks: Task[] = [];
+  const dateStr = selectedDate.toISOString().split("T")[0];
+
+  // Fetch tasks from API when date changes
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const res = await fetch(`/api/tasks?date=${dateStr}`);
+        if (res.ok) {
+          const data = await res.json();
+          setTasks(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tasks:", err);
+      }
+    };
+
+    const fetchNotes = async () => {
+      try {
+        const res = await fetch(`/api/voice-notes?date=${dateStr}`);
+        if (res.ok) {
+          const data = await res.json();
+          setVoiceNotes(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch voice notes:", err);
+      }
+    };
+
+    fetchTasks();
+    fetchNotes();
+  }, [dateStr]);
+
+  const handleRecordingComplete = async (data: EisenhowerMatrixData, audioData: string, duration: string) => {
+    // Build task list from AI analysis
+    const taskBatch: { title: string; category: string; date: string }[] = [];
     const addBatch = (titles: string[], category: TaskCategory) => {
       titles.forEach(title => {
-        newTasks.push({
-          id: Math.random().toString(36).substr(2, 9),
-          title,
-          category,
-          date: dateStr
-        });
+        taskBatch.push({ title, category, date: dateStr });
       });
     };
 
@@ -74,38 +83,141 @@ const App: React.FC = () => {
     addBatch(data.urgentNotImportant, TaskCategory.URGENT_NOT_IMPORTANT);
     addBatch(data.notUrgentNotImportant, TaskCategory.NOT_URGENT_NOT_IMPORTANT);
 
-    setTasks(prev => [...prev, ...newTasks]);
+    // Save tasks to DB
+    if (taskBatch.length > 0) {
+      try {
+        await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tasks: taskBatch }),
+        });
+      } catch (err) {
+        console.error("Failed to save tasks:", err);
+        toast.error("Failed to save tasks");
+      }
+    }
 
-    // 2. Save voice note
-    const newNote: VoiceNote = {
-      id: Math.random().toString(36).substr(2, 9),
-      audioData,
-      date: dateStr,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      duration
-    };
-    setVoiceNotes(prev => [...prev, newNote]);
+    // Save voice note to DB
+    try {
+      await fetch("/api/voice-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audioUrl: audioData,
+          duration,
+          date: dateStr,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to save voice note:", err);
+    }
+
+    // Refresh data from server
+    const [tasksRes, notesRes] = await Promise.all([
+      fetch(`/api/tasks?date=${dateStr}`),
+      fetch(`/api/voice-notes?date=${dateStr}`),
+    ]);
+
+    if (tasksRes.ok) setTasks(await tasksRes.json());
+    if (notesRes.ok) setVoiceNotes(await notesRes.json());
   };
 
-  const toggleTask = useCallback((taskId: string) => {
+  const toggleTask = useCallback(async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const newCompleted = !task.completed;
+    // Optimistic update
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: newCompleted } : t));
+
+    try {
+      await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: [{ id: taskId, completed: newCompleted }] }),
+      });
+    } catch {
+      // Revert on failure
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !newCompleted } : t));
+    }
+  }, [tasks]);
+
+  const deleteTask = useCallback(async (taskId: string) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    try {
+      await fetch("/api/tasks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: taskId }),
+      });
+    } catch {
+      toast.error("Failed to delete task");
+    }
   }, []);
 
-  const deleteTask = useCallback((taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+  const handleTasksReorder = useCallback(async (updates: { id: string; category?: string; order: number }[]) => {
+    // Optimistic update
+    setTasks(prev => prev.map(t => {
+      const u = updates.find(u => u.id === t.id);
+      return u ? { ...t, ...(u.category && { category: u.category as TaskCategory }), order: u.order } : t;
+    }));
+
+    try {
+      await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: updates }),
+      });
+    } catch {
+      toast.error("Failed to update task order");
+    }
   }, []);
 
-  const deleteVoiceNote = useCallback((id: string) => {
+  const deleteVoiceNote = useCallback(async (id: string) => {
     setVoiceNotes(prev => prev.filter(n => n.id !== id));
+    try {
+      await fetch("/api/voice-notes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+    } catch {
+      toast.error("Failed to delete voice note");
+    }
   }, []);
 
-  const dateStr = selectedDate.toISOString().split("T")[0];
-  const filteredTasks = tasks.filter(t => t.date === dateStr);
-  const filteredNotes = voiceNotes.filter(n => n.date === dateStr);
+  const clearDay = async () => {
+    const dayTasks = tasks.filter(t => t.date === dateStr);
+    const dayNotes = voiceNotes.filter(n => {
+      const noteDate = typeof n.date === "string" ? n.date.split("T")[0] : "";
+      return noteDate === dateStr;
+    });
+
+    setTasks([]);
+    setVoiceNotes([]);
+
+    await Promise.all([
+      ...dayTasks.map(t => fetch("/api/tasks", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id }) })),
+      ...dayNotes.map(n => fetch("/api/voice-notes", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: n.id }) })),
+    ]);
+
+    toast.success("Day cleared");
+  };
+
+  // Map date fields for display (API returns ISO strings, components expect YYYY-MM-DD)
+  const mappedTasks = tasks.map(t => ({
+    ...t,
+    date: typeof t.date === "string" ? t.date.split("T")[0] : new Date(t.date).toISOString().split("T")[0],
+  }));
+  const mappedNotes = voiceNotes.map(n => ({
+    ...n,
+    date: typeof n.date === "string" ? n.date.split("T")[0] : new Date(n.date).toISOString().split("T")[0],
+    audioData: n.audioUrl || n.audioData || "",
+  }));
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md bg-white/90">
+    <div>
+      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl flex items-center justify-center shadow-indigo-200 shadow-lg">
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,7 +225,7 @@ const App: React.FC = () => {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900 leading-none">VocalPlan</h1>
+            <h1 className="text-xl font-black text-slate-900 leading-none">Planner</h1>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AI Organizer</span>
           </div>
         </div>
@@ -121,62 +233,57 @@ const App: React.FC = () => {
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Planning For</p>
           <p className="text-indigo-600 font-bold text-sm">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
-      </header>
+      </div>
 
       <CalendarWheel
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
       />
 
-      <main className="flex-grow bg-[#f8fafc]">
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <VoiceRecorder
-            onRecordingComplete={handleRecordingComplete}
-            isProcessing={isProcessing}
-            setIsProcessing={setIsProcessing}
-            provider={provider}
-            onProviderChange={setProvider}
-          />
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <VoiceRecorder
+          onRecordingComplete={handleRecordingComplete}
+          isProcessing={isProcessing}
+          setIsProcessing={setIsProcessing}
+          provider={provider}
+          onProviderChange={setProvider}
+        />
 
-          <VoiceNoteList
-            voiceNotes={filteredNotes}
-            onDeleteNote={deleteVoiceNote}
-          />
+        <VoiceNoteList
+          voiceNotes={mappedNotes}
+          onDeleteNote={deleteVoiceNote}
+        />
 
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-8 px-4">
-              <div className="flex items-baseline space-x-2">
-                <h2 className="text-3xl font-black text-slate-900">Priority Grid</h2>
-                <div className="h-1 w-1 bg-slate-300 rounded-full"></div>
-                <span className="text-slate-400 font-medium">{filteredTasks.length} tasks</span>
-              </div>
-              <button
-                onClick={() => {
-                  setTasks(prev => prev.filter(t => t.date !== dateStr));
-                  setVoiceNotes(prev => prev.filter(n => n.date !== dateStr));
-                }}
-                className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center space-x-1"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                <span>Clear Day</span>
-              </button>
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-8 px-4">
+            <div className="flex items-baseline space-x-2">
+              <h2 className="text-3xl font-black text-slate-900">Priority Grid</h2>
+              <div className="h-1 w-1 bg-slate-300 rounded-full"></div>
+              <span className="text-slate-400 font-medium">{mappedTasks.length} tasks</span>
             </div>
+            <button
+              onClick={clearDay}
+              className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center space-x-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>Clear Day</span>
+            </button>
+          </div>
 
+          {isProcessing ? (
+            <MatrixSkeleton />
+          ) : (
             <EisenhowerMatrix
-              tasks={filteredTasks}
+              tasks={mappedTasks}
               onToggleTask={toggleTask}
               onDeleteTask={deleteTask}
+              onTasksReorder={handleTasksReorder}
             />
-          </div>
+          )}
         </div>
-      </main>
-
-      <footer className="bg-white border-t py-12 px-6 text-center text-slate-400 text-sm">
-        <p className="font-medium tracking-tight">VocalPlan &bull; Organize with the speed of sound</p>
-        <p className="mt-1 text-xs opacity-50 uppercase tracking-widest font-bold">Powered by Gemini AI & Z.AI</p>
-      </footer>
+      </div>
     </div>
   );
 };
