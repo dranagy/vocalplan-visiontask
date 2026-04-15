@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { Team, TeamMember } from "@/types";
 
 export default function TeamsPage() {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -71,20 +74,22 @@ export default function TeamsPage() {
     }
   };
 
+  const fetchMembers = async (teamId: string) => {
+    try {
+      const res = await fetch(`/api/teams/${teamId}/members`);
+      if (res.ok) setMembers(await res.json());
+    } catch {
+      toast.error("Failed to load members");
+    }
+  };
+
   const loadMembers = async (teamId: string) => {
     if (expandedTeam === teamId) {
       setExpandedTeam(null);
       return;
     }
-    try {
-      const res = await fetch(`/api/teams/${teamId}/members`);
-      if (res.ok) {
-        setMembers(await res.json());
-        setExpandedTeam(teamId);
-      }
-    } catch {
-      toast.error("Failed to load members");
-    }
+    await fetchMembers(teamId);
+    setExpandedTeam(teamId);
   };
 
   const removeMember = async (teamId: string, userId: string) => {
@@ -96,7 +101,7 @@ export default function TeamsPage() {
       });
       if (res.ok) {
         toast.success("Member removed");
-        loadMembers(teamId);
+        await fetchMembers(teamId);
         fetchTeams();
       } else {
         const data = await res.json();
@@ -184,7 +189,7 @@ export default function TeamsPage() {
         <div className="space-y-4">
           {teams.map((team) => {
             const isOwner = team.members?.some(
-              (m) => m.role === "OWNER" && m.user?.id
+              (m) => m.role === "OWNER" && m.user?.id === currentUserId
             );
             return (
               <div key={team.id} className="bg-white rounded-2xl border overflow-hidden">
