@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
 
@@ -24,6 +25,10 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json(voiceNotes);
+  } catch (error) {
+    console.error("Voice notes GET error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -32,6 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
   const { audioUrl, transcript, duration, date } = await request.json();
 
   if (!audioUrl || !duration || !date) {
@@ -49,6 +55,10 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json(voiceNote, { status: 201 });
+  } catch (error) {
+    console.error("Voice notes POST error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function DELETE(request: NextRequest) {
@@ -57,6 +67,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
   const { id } = await request.json();
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -67,4 +78,8 @@ export async function DELETE(request: NextRequest) {
   });
 
   return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Voice notes DELETE error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

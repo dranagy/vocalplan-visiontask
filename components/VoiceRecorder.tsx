@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import { EisenhowerMatrixData } from "../types";
 import { AIProvider } from "./PlannerApp";
@@ -30,7 +30,21 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recordingTimeRef = useRef(0);
   const maxSeconds = MAX_RECORDING_SECONDS[provider];
+
+  // Cleanup on unmount: stop recording and clear timer
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        // Remove onstop handler to prevent processAudio during unmount cleanup
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -38,6 +52,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
+      recordingTimeRef.current = 0;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -45,9 +60,9 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const finalDuration = formatTime(recordingTime);
-        await processAudio(audioBlob, finalDuration);
+        const finalDuration = formatTime(recordingTimeRef.current);
         stream.getTracks().forEach(track => track.stop());
+        await processAudio(audioBlob, finalDuration);
       };
 
       mediaRecorder.start();
@@ -55,10 +70,12 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       setRecordingTime(0);
       timerRef.current = window.setInterval(() => {
         setRecordingTime(prev => {
-          if (prev + 1 >= maxSeconds) {
+          const next = prev + 1;
+          recordingTimeRef.current = next;
+          if (next >= maxSeconds) {
             stopRecording();
           }
-          return prev + 1;
+          return next;
         });
       }, 1000);
     } catch (err) {
@@ -68,7 +85,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
@@ -78,35 +95,37 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const processAudio = async (blob: Blob, duration: string) => {
     setIsProcessing(true);
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const fullDataUrl = reader.result as string;
-        const base64Audio = fullDataUrl.split(",")[1];
+      const fullDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Failed to read audio data"));
+        reader.readAsDataURL(blob);
+      });
 
-        const res = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            base64Audio,
-            mimeType: "audio/webm",
-            provider,
-          }),
-        });
+      const base64Audio = fullDataUrl.split(",")[1];
 
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Analysis failed");
-        }
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base64Audio,
+          mimeType: "audio/webm",
+          provider,
+        }),
+      });
 
-        const matrixData: EisenhowerMatrixData = await res.json();
-        onRecordingComplete(matrixData, fullDataUrl, duration);
-        toast.success("Voice note analyzed!");
-        setIsProcessing(false);
-      };
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Analysis failed");
+      }
+
+      const matrixData: EisenhowerMatrixData = await res.json();
+      onRecordingComplete(matrixData, fullDataUrl, duration);
+      toast.success("Voice note analyzed!");
     } catch (err) {
       console.error("Error processing audio:", err);
       toast.error("Failed to process audio. Please try again.");
+    } finally {
       setIsProcessing(false);
     }
   };

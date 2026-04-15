@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   }
   const userId = session.user.id;
 
+  try {
   const { searchParams } = new URL(request.url);
   const range = searchParams.get("range") || "30d";
   const teamId = searchParams.get("teamId");
@@ -17,6 +18,16 @@ export async function GET(request: NextRequest) {
   const days = range === "7d" ? 7 : range === "90d" ? 90 : 30;
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
+
+  // Verify team membership before allowing access to team analytics
+  if (teamId) {
+    const membership = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+    });
+    if (!membership) {
+      return NextResponse.json({ error: "Not a team member" }, { status: 403 });
+    }
+  }
 
   const baseWhere = {
     createdAt: { gte: startDate },
@@ -81,4 +92,8 @@ export async function GET(request: NextRequest) {
     overdueCount,
     dailyCompletions,
   });
+  } catch (error) {
+    console.error("Analytics error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

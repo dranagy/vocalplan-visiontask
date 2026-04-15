@@ -14,6 +14,7 @@ export async function GET(
   const userId = session.user.id;
   const { id: teamId } = await params;
 
+  try {
   const membership = await prisma.teamMember.findUnique({
     where: { teamId_userId: { teamId, userId } },
   });
@@ -28,6 +29,10 @@ export async function GET(
   });
 
   return NextResponse.json(members);
+  } catch (error) {
+    console.error("Team members GET error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 // DELETE /api/teams/[id]/members — remove a member (owner only)
@@ -42,6 +47,7 @@ export async function DELETE(
   const userId = session.user.id;
   const { id: teamId } = await params;
 
+  try {
   const requester = await prisma.teamMember.findUnique({
     where: { teamId_userId: { teamId, userId } },
   });
@@ -67,4 +73,8 @@ export async function DELETE(
   });
 
   return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Team members DELETE error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

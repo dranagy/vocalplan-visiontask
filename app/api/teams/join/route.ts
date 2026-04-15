@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
   }
   const userId = session.user.id;
 
+  try {
   const { inviteCode } = await request.json();
   if (!inviteCode) {
     return NextResponse.json({ error: "inviteCode is required" }, { status: 400 });
@@ -32,4 +33,8 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json({ team, member }, { status: 201 });
+  } catch (error) {
+    console.error("Teams join error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

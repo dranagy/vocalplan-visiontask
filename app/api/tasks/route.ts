@@ -3,6 +3,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TaskCategory } from "@prisma/client";
 
+const VALID_CATEGORIES = new Set(Object.values(TaskCategory));
+
+function isValidCategory(value: string): value is TaskCategory {
+  return VALID_CATEGORIES.has(value as TaskCategory);
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -10,6 +16,7 @@ export async function GET(request: NextRequest) {
   }
   const userId = session.user.id;
 
+  try {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
   const teamId = searchParams.get("teamId");
@@ -39,6 +46,10 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json(tasks);
+  } catch (error) {
+    console.error("Tasks GET error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -48,11 +59,16 @@ export async function POST(request: NextRequest) {
   }
   const userId = session.user.id;
 
+  try {
   const body = await request.json();
   const { tasks, ...singleTask } = body;
 
   // Batch create (from AI analysis)
   if (tasks && Array.isArray(tasks)) {
+    const invalidCategory = tasks.find((t: { category: string }) => !isValidCategory(t.category));
+    if (invalidCategory) {
+      return NextResponse.json({ error: `Invalid task category: ${invalidCategory.category}` }, { status: 400 });
+    }
     const created = await prisma.task.createMany({
       data: tasks.map((t: { title: string; category: string; date: string; deadline?: string; teamId?: string }) => ({
         title: t.title,
@@ -72,6 +88,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "title, category, and date are required" }, { status: 400 });
   }
 
+  if (!isValidCategory(category)) {
+    return NextResponse.json({ error: `Invalid task category: ${category}` }, { status: 400 });
+  }
+
   const task = await prisma.task.create({
     data: {
       title,
@@ -84,6 +104,10 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json(task, { status: 201 });
+  } catch (error) {
+    console.error("Tasks POST error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function PATCH(request: NextRequest) {
@@ -93,10 +117,18 @@ export async function PATCH(request: NextRequest) {
   }
   const userId = session.user.id;
 
+  try {
   const { tasks: updates } = await request.json();
 
   if (!Array.isArray(updates)) {
     return NextResponse.json({ error: "tasks array is required" }, { status: 400 });
+  }
+
+  // Validate categories upfront
+  for (const u of updates) {
+    if (u.category && !isValidCategory(u.category)) {
+      return NextResponse.json({ error: `Invalid task category: ${u.category}` }, { status: 400 });
+    }
   }
 
   const results = await Promise.all(
@@ -140,6 +172,10 @@ export async function PATCH(request: NextRequest) {
   );
 
   return NextResponse.json({ updated: results.filter(Boolean).length });
+  } catch (error) {
+    console.error("Tasks PATCH error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function DELETE(request: NextRequest) {
@@ -149,6 +185,7 @@ export async function DELETE(request: NextRequest) {
   }
   const userId = session.user.id;
 
+  try {
   const { id } = await request.json();
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -173,4 +210,8 @@ export async function DELETE(request: NextRequest) {
 
   await prisma.task.delete({ where: { id } });
   return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Tasks DELETE error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
