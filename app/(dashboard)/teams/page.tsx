@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
-import { Team, TeamMember } from "@/types";
+import { Team } from "@/types";
 
 export default function TeamsPage() {
   const { data: session } = useSession();
@@ -14,8 +14,7 @@ export default function TeamsPage() {
   const [showJoin, setShowJoin] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
-  const [members, setMembers] = useState<TeamMember[]>([]);
+
 
   const fetchTeams = async () => {
     try {
@@ -74,24 +73,6 @@ export default function TeamsPage() {
     }
   };
 
-  const fetchMembers = async (teamId: string) => {
-    try {
-      const res = await fetch(`/api/teams/${teamId}/members`);
-      if (res.ok) setMembers(await res.json());
-    } catch {
-      toast.error("Failed to load members");
-    }
-  };
-
-  const loadMembers = async (teamId: string) => {
-    if (expandedTeam === teamId) {
-      setExpandedTeam(null);
-      return;
-    }
-    await fetchMembers(teamId);
-    setExpandedTeam(teamId);
-  };
-
   const removeMember = async (teamId: string, userId: string) => {
     try {
       const res = await fetch(`/api/teams/${teamId}/members`, {
@@ -101,7 +82,6 @@ export default function TeamsPage() {
       });
       if (res.ok) {
         toast.success("Member removed");
-        await fetchMembers(teamId);
         fetchTeams();
       } else {
         const data = await res.json();
@@ -193,54 +173,44 @@ export default function TeamsPage() {
             );
             return (
               <div key={team.id} className="bg-white rounded-2xl border overflow-hidden">
-                <div
-                  className="p-6 cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between"
-                  onClick={() => loadMembers(team.id)}
-                >
+                <div className="p-6 flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-slate-900">{team.name}</h3>
                     <p className="text-sm text-slate-500">
                       {team._count?.members || 0} members &bull; {team._count?.tasks || 0} tasks
                     </p>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-slate-100 px-3 py-1.5 rounded-lg">
-                      <span className="text-xs font-mono font-bold text-slate-600 tracking-wider">{team.inviteCode}</span>
-                    </div>
-                    <svg className={`w-5 h-5 text-slate-400 transition-transform ${expandedTeam === team.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                  <div className="bg-slate-100 px-3 py-1.5 rounded-lg">
+                    <span className="text-xs font-mono font-bold text-slate-600 tracking-wider">{team.inviteCode}</span>
                   </div>
                 </div>
 
-                {expandedTeam === team.id && (
-                  <div className="border-t px-6 py-4 bg-slate-50">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Members</h4>
-                    <div className="space-y-2">
-                      {members.map((m) => (
-                        <div key={m.id} className="flex items-center justify-between py-2">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 text-xs font-bold">
-                              {(m.user?.name || m.user?.email || "?")[0].toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">{m.user?.name || m.user?.email}</p>
-                              <p className="text-xs text-slate-400">{m.role}</p>
-                            </div>
+                <div className="border-t px-6 py-4 bg-slate-50">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Members</h4>
+                  <div className="space-y-2">
+                    {(team.members ?? []).map((m) => (
+                      <div key={m.id} className="flex items-center justify-between py-2">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 text-xs font-bold">
+                            {(m.user?.name || m.user?.email || "?")[0].toUpperCase()}
                           </div>
-                          {isOwner && m.role !== "OWNER" && (
-                            <button
-                              onClick={() => removeMember(team.id, m.userId)}
-                              className="text-xs text-red-400 hover:text-red-600 font-semibold"
-                            >
-                              Remove
-                            </button>
-                          )}
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{m.user?.name || m.user?.email}</p>
+                            <p className="text-xs text-slate-400">{m.role}</p>
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                        {isOwner && m.role !== "OWNER" && (
+                          <button
+                            onClick={() => removeMember(team.id, m.userId)}
+                            className="text-xs text-red-400 hover:text-red-600 font-semibold"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
