@@ -33,7 +33,7 @@ const App: React.FC = () => {
     localStorage.setItem("eisenhower_provider", provider);
   }, [provider]);
 
-  // Fetch user's teams on mount
+  // Fetch user's teams on mount and when window regains focus
   useEffect(() => {
     const fetchTeams = async () => {
       try {
@@ -44,6 +44,8 @@ const App: React.FC = () => {
       }
     };
     fetchTeams();
+    window.addEventListener("focus", fetchTeams);
+    return () => window.removeEventListener("focus", fetchTeams);
   }, []);
 
   // Load saved team context

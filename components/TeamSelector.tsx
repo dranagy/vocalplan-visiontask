@@ -16,12 +16,20 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({
   onTeamChange,
   disabled = false,
 }) => {
-  // No teams → just show a muted "Personal" label
+  // No teams → show Personal label with a hint to create one
   if (teams.length === 0) {
     return (
-      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-        Personal
-      </span>
+      <a
+        href="/teams"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-slate-400 hover:text-indigo-500 hover:bg-slate-50 transition-all"
+        title="Go to Teams to create or join a team"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span>Personal</span>
+        <span className="text-[10px] text-slate-300">+ Team</span>
+      </a>
     );
   }
 
