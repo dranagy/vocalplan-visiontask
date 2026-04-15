@@ -16,13 +16,15 @@ const makeTeam = (id: string, name: string): Team => ({
 const teams: Team[] = [makeTeam("t1", "Alpha"), makeTeam("t2", "Beta")];
 
 describe("TeamSelector — no teams", () => {
-  it("renders a link to /teams with Personal label when there are no teams", () => {
+  it("renders a pill toggle with Personal button and a link to /teams when there are no teams", () => {
     render(
       <TeamSelector teams={[]} selectedTeamId={null} onTeamChange={vi.fn()} />
     );
+    // Personal button is always present
+    expect(screen.getByRole("button", { name: /personal/i })).toBeInTheDocument();
+    // A link to /teams is shown as the "+ Team" hint
     const link = screen.getByRole("link");
     expect(link).toHaveAttribute("href", "/teams");
-    expect(screen.getByText("Personal")).toBeInTheDocument();
   });
 });
 

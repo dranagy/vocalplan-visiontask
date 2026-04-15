@@ -16,23 +16,6 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({
   onTeamChange,
   disabled = false,
 }) => {
-  // No teams → show Personal label with a hint to create one
-  if (teams.length === 0) {
-    return (
-      <a
-        href="/teams"
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-slate-400 hover:text-indigo-500 hover:bg-slate-50 transition-all"
-        title="Go to Teams to create or join a team"
-      >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        <span>Personal</span>
-        <span className="text-[10px] text-slate-300">+ Team</span>
-      </a>
-    );
-  }
-
   return (
     <div className="bg-slate-100 p-1 rounded-full flex items-center gap-0.5">
       {/* Personal option */}
@@ -77,6 +60,17 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({
           <span className="max-w-[80px] truncate">{team.name}</span>
         </button>
       ))}
+
+      {/* When no teams joined yet, show a link to create/join one */}
+      {teams.length === 0 && (
+        <a
+          href="/teams"
+          title="Go to Teams to create or join a team"
+          className="px-3 py-1.5 rounded-full text-xs font-bold text-slate-400 hover:text-indigo-500 transition-all"
+        >
+          + Team
+        </a>
+      )}
     </div>
   );
 };

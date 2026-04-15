@@ -20,7 +20,15 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [provider, setProvider] = useState<AIProvider>("gemini");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams, setTeams] = useState<Team[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const cached = localStorage.getItem("eisenhower_teams");
+      return cached ? (JSON.parse(cached) as Team[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const pathname = usePathname();
 
   // Load AI provider preference from localStorage
@@ -40,7 +48,15 @@ const App: React.FC = () => {
     const fetchTeams = async () => {
       try {
         const res = await fetch("/api/teams");
-        if (res.ok) setTeams(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setTeams(data);
+          try {
+            localStorage.setItem("eisenhower_teams", JSON.stringify(data));
+          } catch {
+            // ignore storage errors
+          }
+        }
       } catch (err) {
         console.error("Failed to fetch teams:", err);
       }
