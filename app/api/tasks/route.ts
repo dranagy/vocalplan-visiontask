@@ -69,6 +69,22 @@ export async function POST(request: NextRequest) {
     if (invalidCategory) {
       return NextResponse.json({ error: `Invalid task category: ${invalidCategory.category}` }, { status: 400 });
     }
+
+    // Verify membership for all unique team IDs
+    const teamIds = [...new Set(
+      tasks
+        .map((t: { teamId?: string }) => t.teamId)
+        .filter((id: string | undefined): id is string => !!id)
+    )];
+    for (const tid of teamIds) {
+      const membership = await prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId: tid, userId } },
+      });
+      if (!membership) {
+        return NextResponse.json({ error: "Not a team member" }, { status: 403 });
+      }
+    }
+
     const created = await prisma.task.createMany({
       data: tasks.map((t: { title: string; category: string; date: string; deadline?: string; teamId?: string }) => ({
         title: t.title,
@@ -90,6 +106,16 @@ export async function POST(request: NextRequest) {
 
   if (!isValidCategory(category)) {
     return NextResponse.json({ error: `Invalid task category: ${category}` }, { status: 400 });
+  }
+
+  // Verify team membership before creating a team task
+  if (teamId) {
+    const membership = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+    });
+    if (!membership) {
+      return NextResponse.json({ error: "Not a team member" }, { status: 403 });
+    }
   }
 
   const task = await prisma.task.create({
