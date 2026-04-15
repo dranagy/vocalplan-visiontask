@@ -24,7 +24,9 @@ const App: React.FC = () => {
     if (typeof window === "undefined") return [];
     try {
       const cached = localStorage.getItem("eisenhower_teams");
-      return cached ? (JSON.parse(cached) as Team[]) : [];
+      if (!cached) return [];
+      const parsed = JSON.parse(cached);
+      return Array.isArray(parsed) ? (parsed as Team[]) : [];
     } catch {
       return [];
     }
