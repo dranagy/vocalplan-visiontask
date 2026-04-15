@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import CalendarWheel from "./CalendarWheel";
 import VoiceRecorder from "./VoiceRecorder";
 import EisenhowerMatrix from "./EisenhowerMatrix";
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [provider, setProvider] = useState<AIProvider>("gemini");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
+  const pathname = usePathname();
 
   // Load AI provider preference from localStorage
   useEffect(() => {
@@ -33,7 +35,7 @@ const App: React.FC = () => {
     localStorage.setItem("eisenhower_provider", provider);
   }, [provider]);
 
-  // Fetch user's teams on mount and when window regains focus
+  // Fetch user's teams — refetch on mount and every navigation to planner
   useEffect(() => {
     const fetchTeams = async () => {
       try {
@@ -44,9 +46,7 @@ const App: React.FC = () => {
       }
     };
     fetchTeams();
-    window.addEventListener("focus", fetchTeams);
-    return () => window.removeEventListener("focus", fetchTeams);
-  }, []);
+  }, [pathname]);
 
   // Load saved team context
   useEffect(() => {
