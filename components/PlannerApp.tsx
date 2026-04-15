@@ -230,11 +230,8 @@ const App: React.FC = () => {
       : null;
     if (confirmMsg && !window.confirm(confirmMsg)) return;
 
-    const dayTasks = tasks.filter(t => t.date === dateStr);
-    const dayNotes = voiceNotes.filter(n => {
-      const noteDate = typeof n.date === "string" ? n.date.split("T")[0] : "";
-      return noteDate === dateStr;
-    });
+    const dayTasks = mappedTasks.filter(t => t.date === dateStr);
+    const dayNotes = mappedNotes.filter(n => n.date === dateStr);
 
     setTasks([]);
     setVoiceNotes([]);
