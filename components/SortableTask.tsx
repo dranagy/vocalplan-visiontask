@@ -9,9 +9,10 @@ interface SortableTaskProps {
   task: Task;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  teamName?: string;
 }
 
-export default function SortableTask({ task, onToggle, onDelete }: SortableTaskProps) {
+export default function SortableTask({ task, onToggle, onDelete, teamName }: SortableTaskProps) {
   const {
     attributes,
     listeners,
@@ -54,6 +55,11 @@ export default function SortableTask({ task, onToggle, onDelete }: SortableTaskP
       <div className="flex-grow min-w-0" {...attributes} {...listeners}>
         <span className={`text-sm leading-tight block ${task.completed ? "line-through text-slate-400" : "text-slate-700"}`}>
           {task.title}
+          {teamName && (
+            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 rounded">
+              {teamName}
+            </span>
+          )}
         </span>
         {task.deadline && (
           <span className={`text-xs font-medium mt-1 block ${

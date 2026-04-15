@@ -100,20 +100,46 @@ export async function PATCH(request: NextRequest) {
   }
 
   const results = await Promise.all(
-    updates.map((u: { id: string; category?: string; order?: number; completed?: boolean; deadline?: string | null }) =>
-      prisma.task.updateMany({
-        where: { id: u.id, userId },
+    updates.map(async (u: {
+      id: string; category?: string; order?: number;
+      completed?: boolean; deadline?: string | null;
+      teamId?: string | null;
+    }) => {
+      const existing = await prisma.task.findUnique({ where: { id: u.id } });
+      if (!existing) return null;
+
+      // Authorization: team task → check membership; personal task → check ownership
+      if (existing.teamId) {
+        const membership = await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId: existing.teamId, userId } },
+        });
+        if (!membership) return null;
+      } else if (existing.userId !== userId) {
+        return null;
+      }
+
+      // If assigning to a new team, verify membership in target team
+      if (u.teamId) {
+        const membership = await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId: u.teamId, userId } },
+        });
+        if (!membership) return null;
+      }
+
+      return prisma.task.update({
+        where: { id: u.id },
         data: {
           ...(u.category && { category: u.category as TaskCategory }),
           ...(u.order !== undefined && { order: u.order }),
           ...(u.completed !== undefined && { completed: u.completed }),
           ...(u.deadline !== undefined && { deadline: u.deadline ? new Date(u.deadline) : null }),
+          ...(u.teamId !== undefined && { teamId: u.teamId }),
         },
-      })
-    )
+      });
+    })
   );
 
-  return NextResponse.json({ updated: results.length });
+  return NextResponse.json({ updated: results.filter(Boolean).length });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -128,9 +154,23 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
-  await prisma.task.deleteMany({
-    where: { id, userId },
-  });
+  const existing = await prisma.task.findUnique({ where: { id } });
+  if (!existing) {
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
 
+  // Authorization: team task → check membership; personal task → check ownership
+  if (existing.teamId) {
+    const membership = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId: existing.teamId, userId } },
+    });
+    if (!membership) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+  } else if (existing.userId !== userId) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
+  await prisma.task.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }

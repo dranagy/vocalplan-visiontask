@@ -18,7 +18,7 @@ Voice-powered Eisenhower Matrix task organizer. Record a voice note and AI autom
 4. **Drag and drop** tasks between quadrants to re-prioritize
 5. **Navigate by date** using the calendar strip to plan different days
 6. **Review analytics** — completion rates, quadrant distribution, and trends over time
-7. **Collaborate with teams** — create a team, share an invite code, assign tasks
+7. **Collaborate with teams** — create a team, share an invite code, switch to team context in the planner to create and manage shared tasks
 
 ---
 
@@ -31,7 +31,7 @@ Voice-powered Eisenhower Matrix task organizer. Record a voice note and AI autom
 - **User authentication** — secure email/password login with JWT sessions
 - **Persistent database** — tasks and voice notes stored in PostgreSQL
 - **Analytics dashboard** — completion charts, quadrant pie chart, and stats cards
-- **Team collaboration** — create teams, invite members via code, share tasks
+- **Team collaboration** — create teams, invite members via code, switch between personal and team task views, assign tasks to teams directly from the planner
 - **PWA installable** — works as a standalone app with offline support
 - **Responsive design** — works on desktop and mobile
 
@@ -145,7 +145,8 @@ Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to 
 │   ├── PlannerApp.tsx             # Main orchestrator (client component)
 │   ├── VoiceRecorder.tsx          # Mic recording + provider toggle
 │   ├── EisenhowerMatrix.tsx       # 4-quadrant drag-and-drop grid
-│   ├── SortableTask.tsx           # Individual draggable task card
+│   ├── SortableTask.tsx           # Individual draggable task card (with team badge)
+│   ├── TeamSelector.tsx           # Personal / team context toggle
 │   ├── CalendarWheel.tsx          # Date picker strip
 │   ├── VoiceNoteList.tsx          # Audio playback list
 │   ├── analytics/                 # Chart components (Recharts)

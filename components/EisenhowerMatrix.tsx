@@ -23,6 +23,7 @@ interface EisenhowerMatrixProps {
   onToggleTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   onTasksReorder?: (updates: { id: string; category?: string; order: number }[]) => void;
+  teamName?: string;
 }
 
 const quadrants = [
@@ -69,6 +70,7 @@ const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
   onToggleTask,
   onDeleteTask,
   onTasksReorder,
+  teamName,
 }) => {
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const sensors = useSensors(
@@ -181,6 +183,7 @@ const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
                         task={task}
                         onToggle={onToggleTask}
                         onDelete={onDeleteTask}
+                        teamName={teamName}
                       />
                     ))
                   )}

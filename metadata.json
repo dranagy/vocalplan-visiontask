@@ -1,7 +1,0 @@
-{
-  "name": "Eisenhower Voice Planner",
-  "description": "An AI-powered daily organizer that categorizes your voice notes into the Eisenhower Matrix (Urgent/Important) for peak productivity.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
-}

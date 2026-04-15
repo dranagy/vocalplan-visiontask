@@ -6,7 +6,8 @@ import VoiceRecorder from "./VoiceRecorder";
 import EisenhowerMatrix from "./EisenhowerMatrix";
 import MatrixSkeleton from "./MatrixSkeleton";
 import VoiceNoteList from "./VoiceNoteList";
-import { Task, TaskCategory, EisenhowerMatrixData, VoiceNote } from "../types";
+import TeamSelector from "./TeamSelector";
+import { Task, TaskCategory, EisenhowerMatrixData, VoiceNote, Team } from "../types";
 import toast from "react-hot-toast";
 
 export type AIProvider = "gemini" | "glm";
@@ -17,6 +18,8 @@ const App: React.FC = () => {
   const [voiceNotes, setVoiceNotes] = useState<VoiceNote[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [provider, setProvider] = useState<AIProvider>("gemini");
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   // Load AI provider preference from localStorage
   useEffect(() => {
@@ -29,6 +32,34 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem("eisenhower_provider", provider);
   }, [provider]);
+
+  // Fetch user's teams on mount
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const res = await fetch("/api/teams");
+        if (res.ok) setTeams(await res.json());
+      } catch (err) {
+        console.error("Failed to fetch teams:", err);
+      }
+    };
+    fetchTeams();
+  }, []);
+
+  // Load saved team context
+  useEffect(() => {
+    const saved = localStorage.getItem("eisenhower_teamId");
+    if (saved) setSelectedTeamId(saved);
+  }, []);
+
+  // Persist team context
+  useEffect(() => {
+    if (selectedTeamId) {
+      localStorage.setItem("eisenhower_teamId", selectedTeamId);
+    } else {
+      localStorage.removeItem("eisenhower_teamId");
+    }
+  }, [selectedTeamId]);
 
   // Register service worker
   useEffect(() => {
@@ -43,10 +74,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const res = await fetch(`/api/tasks?date=${dateStr}`);
+        const url = `/api/tasks?date=${dateStr}${selectedTeamId ? `&teamId=${selectedTeamId}` : ""}`;
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           setTasks(data);
+        } else if (res.status === 403 && selectedTeamId) {
+          // User no longer has access to this team
+          setSelectedTeamId(null);
+          toast.error("You no longer have access to that team");
         }
       } catch (err) {
         console.error("Failed to fetch tasks:", err);
@@ -67,14 +103,14 @@ const App: React.FC = () => {
 
     fetchTasks();
     fetchNotes();
-  }, [dateStr]);
+  }, [dateStr, selectedTeamId]);
 
   const handleRecordingComplete = async (data: EisenhowerMatrixData, audioData: string, duration: string) => {
     // Build task list from AI analysis
-    const taskBatch: { title: string; category: string; date: string }[] = [];
+    const taskBatch: { title: string; category: string; date: string; teamId?: string }[] = [];
     const addBatch = (titles: string[], category: TaskCategory) => {
       titles.forEach(title => {
-        taskBatch.push({ title, category, date: dateStr });
+        taskBatch.push({ title, category, date: dateStr, teamId: selectedTeamId || undefined });
       });
     };
 
@@ -114,7 +150,7 @@ const App: React.FC = () => {
 
     // Refresh data from server
     const [tasksRes, notesRes] = await Promise.all([
-      fetch(`/api/tasks?date=${dateStr}`),
+      fetch(`/api/tasks?date=${dateStr}${selectedTeamId ? `&teamId=${selectedTeamId}` : ""}`),
       fetch(`/api/voice-notes?date=${dateStr}`),
     ]);
 
@@ -187,6 +223,11 @@ const App: React.FC = () => {
   }, []);
 
   const clearDay = async () => {
+    const confirmMsg = selectedTeamId
+      ? "Clear all team tasks for this date?"
+      : null;
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+
     const dayTasks = tasks.filter(t => t.date === dateStr);
     const dayNotes = voiceNotes.filter(n => {
       const noteDate = typeof n.date === "string" ? n.date.split("T")[0] : "";
@@ -203,6 +244,11 @@ const App: React.FC = () => {
 
     toast.success("Day cleared");
   };
+
+  // Resolve team name for task badges
+  const activeTeamName = selectedTeamId
+    ? teams.find(t => t.id === selectedTeamId)?.name
+    : undefined;
 
   // Map date fields for display (API returns ISO strings, components expect YYYY-MM-DD)
   const mappedTasks = tasks.map(t => ({
@@ -229,6 +275,12 @@ const App: React.FC = () => {
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AI Organizer</span>
           </div>
         </div>
+        <TeamSelector
+          teams={teams}
+          selectedTeamId={selectedTeamId}
+          onTeamChange={setSelectedTeamId}
+          disabled={isProcessing}
+        />
         <div className="text-right">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Planning For</p>
           <p className="text-indigo-600 font-bold text-sm">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
@@ -280,6 +332,7 @@ const App: React.FC = () => {
               onToggleTask={toggleTask}
               onDeleteTask={deleteTask}
               onTasksReorder={handleTasksReorder}
+              teamName={activeTeamName}
             />
           )}
         </div>
