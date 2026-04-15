@@ -38,8 +38,10 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        // Remove onstop handler to prevent processAudio during unmount cleanup
+        mediaRecorderRef.current.onstop = null;
         mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
