@@ -9,6 +9,7 @@
  *  Flow 3 – Personal vs team context isolation
  *  Flow 4 – Owner removes a member
  *  Flow 5 – Voice-analysis tasks land under the selected team
+ *  Flow 6 – Cross-member task editing
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
