@@ -280,27 +280,34 @@ const App: React.FC = () => {
 
   return (
     <div>
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl flex items-center justify-center shadow-indigo-200 shadow-lg">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
+      <div className="bg-white border-b px-4 md:px-6 py-3 md:py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2 md:space-x-3">
+            <div className="w-9 h-9 md:w-10 md:h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl flex items-center justify-center shadow-indigo-200 shadow-lg">
+              <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-lg md:text-xl font-black text-slate-900 leading-none">Planner</h1>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AI Organizer</span>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-black text-slate-900 leading-none">Planner</h1>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AI Organizer</span>
+          <div className="text-right md:hidden">
+            <p className="text-indigo-600 font-bold text-xs">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
           </div>
         </div>
-        <TeamSelector
-          teams={teams}
-          selectedTeamId={selectedTeamId}
-          onTeamChange={setSelectedTeamId}
-          disabled={isProcessing}
-        />
-        <div className="text-right">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Planning For</p>
-          <p className="text-indigo-600 font-bold text-sm">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+        <div className="flex items-center justify-between mt-2">
+          <TeamSelector
+            teams={teams}
+            selectedTeamId={selectedTeamId}
+            onTeamChange={setSelectedTeamId}
+            disabled={isProcessing}
+          />
+          <div className="text-right hidden md:block">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Planning For</p>
+            <p className="text-indigo-600 font-bold text-sm">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          </div>
         </div>
       </div>
 

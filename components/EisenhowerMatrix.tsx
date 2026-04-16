@@ -143,7 +143,7 @@ const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 max-w-6xl mx-auto w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 p-3 md:p-4 max-w-6xl mx-auto w-full">
         {quadrants.map((q) => {
           const quadrantTasks = tasks
             .filter((t) => t.category === q.category)
@@ -153,7 +153,7 @@ const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
             <div
               key={q.category}
               id={q.category}
-              className={`${q.bgColor} border ${q.borderColor} rounded-3xl p-6 flex flex-col min-h-[300px] shadow-sm transition-all hover:shadow-md`}
+              className={`${q.bgColor} border ${q.borderColor} rounded-2xl md:rounded-3xl p-3 md:p-6 flex flex-col min-h-[180px] md:min-h-[300px] shadow-sm transition-all hover:shadow-md`}
             >
               <div className="flex items-center justify-between mb-4">
                 <div>

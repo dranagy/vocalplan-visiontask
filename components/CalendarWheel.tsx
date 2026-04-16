@@ -62,7 +62,7 @@ const CalendarWheel: React.FC<CalendarWheelProps> = ({ selectedDate, onDateChang
               key={date.toISOString()}
               ref={today ? todayRef : undefined}
               onClick={() => onDateChange(date)}
-              className={`flex flex-col items-center justify-center min-w-[80px] p-3 rounded-2xl transition-all ${
+              className={`flex flex-col items-center justify-center min-w-[64px] md:min-w-[80px] p-2 md:p-3 rounded-2xl transition-all ${
                 selected
                   ? 'bg-indigo-600 text-white shadow-lg scale-105'
                   : today

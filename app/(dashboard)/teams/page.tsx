@@ -103,9 +103,9 @@ export default function TeamsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-black text-slate-900">Teams</h1>
+    <div className="max-w-3xl mx-auto px-4 py-6 md:py-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 md:mb-8 gap-3">
+        <h1 className="text-2xl md:text-3xl font-black text-slate-900">Teams</h1>
         <div className="flex space-x-2">
           <button
             onClick={() => { setShowCreate(!showCreate); setShowJoin(false); }}

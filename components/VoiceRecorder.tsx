@@ -137,12 +137,12 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center space-y-4 py-8 bg-white border rounded-3xl shadow-sm mb-8">
+    <div className="flex flex-col items-center space-y-3 md:space-y-4 py-6 md:py-8 bg-white border rounded-2xl md:rounded-3xl shadow-sm mb-6 md:mb-8 px-4">
       {/* Provider toggle */}
       <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-full">
         <button
           onClick={() => { if (!isRecording && !isProcessing) onProviderChange("gemini"); }}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
+          className={`px-3 md:px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
             provider === "gemini"
               ? "bg-white text-indigo-600 shadow-sm"
               : "text-slate-400 hover:text-slate-600"
@@ -152,7 +152,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         </button>
         <button
           onClick={() => { if (!isRecording && !isProcessing) onProviderChange("glm"); }}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
+          className={`px-3 md:px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
             provider === "glm"
               ? "bg-white text-indigo-600 shadow-sm"
               : "text-slate-400 hover:text-slate-600"
@@ -166,22 +166,22 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         <p className="text-xs text-amber-600 font-medium">GLM mode: max 30 seconds</p>
       )}
 
-      <div className="flex items-center space-x-6">
+      <div className="flex items-center space-x-4 md:space-x-6">
         <button
           onClick={isRecording ? stopRecording : startRecording}
           disabled={isProcessing}
-          className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all ${
+          className={`relative w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all ${
             isRecording
               ? "bg-red-500 hover:bg-red-600 animate-pulse scale-110 shadow-xl"
               : "bg-indigo-600 hover:bg-indigo-700 shadow-lg"
           } ${isProcessing ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
         >
           {isRecording ? (
-            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 md:w-8 md:h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="2" />
             </svg>
           ) : (
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-7 h-7 md:w-10 md:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
           )}
@@ -194,7 +194,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
           <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">
             {isRecording ? "Recording..." : isProcessing ? "AI Processing..." : "Quick Record"}
           </span>
-          <span className="text-3xl font-black text-slate-800 tabular-nums">
+          <span className="text-2xl md:text-3xl font-black text-slate-800 tabular-nums">
             {isRecording ? formatTime(recordingTime) : isProcessing ? "Analyzing" : "0:00"}
           </span>
         </div>
