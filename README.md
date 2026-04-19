@@ -81,7 +81,7 @@ GEMINI_API_KEY=your_gemini_key          # Required — Get from https://aistudio
 Z_AI_API_KEY=your_zai_key               # Optional — Get from https://z.ai
 
 # Database (Neon PostgreSQL)
-DATABASE_URL=postgresql://user:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
+DATABASE_URL_VOCAL=postgresql://user:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
 
 # Auth
 NEXTAUTH_URL=http://localhost:3000
@@ -206,11 +206,11 @@ PostgreSQL with Prisma ORM. Core models:
 1. Push to GitHub
 2. Create a [Neon](https://neon.tech) PostgreSQL project, then push the schema:
    ```bash
-   DATABASE_URL="your-neon-connection-string" npx prisma db push
+   DATABASE_URL_VOCAL="your-neon-connection-string" npx prisma db push
    ```
 3. Import repo at [vercel.com](https://vercel.com) — auto-detected as Next.js
 4. Set environment variables:
-   - `DATABASE_URL` — Neon connection string
+   - `DATABASE_URL_VOCAL` — Neon connection string
    - `GEMINI_API_KEY` — your Gemini API key
    - `NEXTAUTH_SECRET` — `openssl rand -base64 32`
    - `NEXTAUTH_URL` — your Vercel app URL

@@ -21,7 +21,7 @@ npx prisma generate       # Regenerate Prisma client
 ## Environment Setup
 
 Copy `.env.example` to `.env.local`. Required:
-- `DATABASE_URL` — PostgreSQL connection string (Neon recommended)
+- `DATABASE_URL_VOCAL` — PostgreSQL connection string (Neon recommended)
 - `NEXTAUTH_SECRET` — JWT signing secret
 - `NEXTAUTH_URL` — app URL (http://localhost:3000)
 - `GEMINI_API_KEY` — required for both voice and image analysis
