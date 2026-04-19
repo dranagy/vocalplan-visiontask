@@ -57,18 +57,23 @@ model User {
   tasks           Task[]
   voiceNotes      VoiceNote[]
   teamMemberships TeamMember[]
+  imageNotes      ImageNote[]
 }
 
 model Task {
-  id        String       @id @default(cuid())
-  title     String
-  category  TaskCategory @default(URGENT_IMPORTANT)
-  date      DateTime
-  deadline  DateTime?
-  completed Boolean      @default(false)
-  order     Int          @default(0)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id          String       @id @default(cuid())
+  title       String
+  description String       @default("")
+  category    TaskCategory @default(URGENT_IMPORTANT)
+  status      TaskStatus   @default(TODO)
+  source      TaskSource   @default(MANUAL)
+  date        DateTime
+  deadline    DateTime?
+  completed   Boolean      @default(false)
+  order       Int          @default(0)
+  assigneeId  String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -78,6 +83,8 @@ model Task {
 
   @@index([userId, date])
   @@index([teamId, date])
+  @@index([status, teamId])
+  @@index([assigneeId])
 }
 
 model VoiceNote {
@@ -100,8 +107,9 @@ model Team {
   inviteCode String   @unique
   createdAt  DateTime @default(now())
 
-  tasks   Task[]
-  members TeamMember[]
+  tasks      Task[]
+  members    TeamMember[]
+  imageNotes ImageNote[]
 
   @@index([inviteCode])
 }
@@ -126,7 +134,37 @@ enum TaskCategory {
   NOT_URGENT_NOT_IMPORTANT
 }
 
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum TaskSource {
+  VOICE
+  IMAGE
+  MANUAL
+}
+
+model ImageNote {
+  id            String   @id @default(cuid())
+  imageUrl      String
+  extractedText String?
+  date          DateTime
+  createdAt     DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  teamId String?
+  team   Team?  @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([userId, date])
+}
+
 enum TeamRole {
   OWNER
+  ADMIN
   MEMBER
 }

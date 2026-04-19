@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { TaskCategory } from "@prisma/client";
+import { TaskCategory, TaskStatus, TaskSource } from "@prisma/client";
 
 const VALID_CATEGORIES = new Set(Object.values(TaskCategory));
+const VALID_STATUSES = new Set(Object.values(TaskStatus));
+const VALID_SOURCES = new Set(Object.values(TaskSource));
 
 function isValidCategory(value: string): value is TaskCategory {
   return VALID_CATEGORIES.has(value as TaskCategory);
+}
+
+function isValidStatus(value: string): value is TaskStatus {
+  return VALID_STATUSES.has(value as TaskStatus);
 }
 
 export async function GET(request: NextRequest) {
@@ -20,6 +26,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
   const teamId = searchParams.get("teamId");
+  const status = searchParams.get("status");
+  const assigneeId = searchParams.get("assigneeId");
 
   if (!date) {
     return NextResponse.json({ error: "date query param is required" }, { status: 400 });
@@ -39,6 +47,9 @@ export async function GET(request: NextRequest) {
     where.userId = userId;
     where.teamId = null;
   }
+
+  if (status) where.status = status;
+  if (assigneeId) where.assigneeId = assigneeId;
 
   const tasks = await prisma.task.findMany({
     where,
@@ -86,9 +97,17 @@ export async function POST(request: NextRequest) {
     }
 
     const created = await prisma.task.createMany({
-      data: tasks.map((t: { title: string; category: string; date: string; deadline?: string; teamId?: string }) => ({
+      data: tasks.map((t: {
+        title: string; category: string; date: string; deadline?: string;
+        teamId?: string; description?: string; status?: string; source?: string;
+        assigneeId?: string;
+      }) => ({
         title: t.title,
+        description: t.description || "",
         category: t.category as TaskCategory,
+        status: (t.status && isValidStatus(t.status) ? t.status : "TODO") as TaskStatus,
+        source: (t.source && VALID_SOURCES.has(t.source as TaskSource) ? t.source : "MANUAL") as TaskSource,
+        assigneeId: t.assigneeId || null,
         date: new Date(t.date),
         deadline: t.deadline ? new Date(t.deadline) : null,
         userId,
@@ -99,14 +118,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Single task create
-  const { title, category, date, deadline, teamId } = singleTask;
-  if (!title || !category || !date) {
-    return NextResponse.json({ error: "title, category, and date are required" }, { status: 400 });
+  const { title, category, date, deadline, teamId, description, status, source, assigneeId } = singleTask;
+  if (!title || !date) {
+    return NextResponse.json({ error: "title and date are required" }, { status: 400 });
   }
 
-  if (!isValidCategory(category)) {
-    return NextResponse.json({ error: `Invalid task category: ${category}` }, { status: 400 });
-  }
+  const taskCategory = category && isValidCategory(category) ? category : "URGENT_IMPORTANT";
+  const taskStatus = status && isValidStatus(status) ? status : "TODO";
 
   // Verify team membership before creating a team task
   if (teamId) {
@@ -121,7 +139,11 @@ export async function POST(request: NextRequest) {
   const task = await prisma.task.create({
     data: {
       title,
-      category: category as TaskCategory,
+      description: description || "",
+      category: taskCategory as TaskCategory,
+      status: taskStatus as TaskStatus,
+      source: (source && VALID_SOURCES.has(source as TaskSource) ? source : "MANUAL") as TaskSource,
+      assigneeId: assigneeId || null,
       date: new Date(date),
       deadline: deadline ? new Date(deadline) : null,
       userId,
@@ -150,10 +172,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "tasks array is required" }, { status: 400 });
   }
 
-  // Validate categories upfront
+  // Validate categories and statuses upfront
   for (const u of updates) {
     if (u.category && !isValidCategory(u.category)) {
       return NextResponse.json({ error: `Invalid task category: ${u.category}` }, { status: 400 });
+    }
+    if (u.status && !isValidStatus(u.status)) {
+      return NextResponse.json({ error: `Invalid task status: ${u.status}` }, { status: 400 });
     }
   }
 
@@ -161,7 +186,8 @@ export async function PATCH(request: NextRequest) {
     updates.map(async (u: {
       id: string; category?: string; order?: number;
       completed?: boolean; deadline?: string | null;
-      teamId?: string | null;
+      teamId?: string | null; status?: string;
+      assigneeId?: string | null; description?: string;
     }) => {
       const existing = await prisma.task.findUnique({ where: { id: u.id } });
       if (!existing) return null;
@@ -188,6 +214,9 @@ export async function PATCH(request: NextRequest) {
         where: { id: u.id },
         data: {
           ...(u.category && { category: u.category as TaskCategory }),
+          ...(u.status && { status: u.status as TaskStatus }),
+          ...(u.assigneeId !== undefined && { assigneeId: u.assigneeId }),
+          ...(u.description !== undefined && { description: u.description }),
           ...(u.order !== undefined && { order: u.order }),
           ...(u.completed !== undefined && { completed: u.completed }),
           ...(u.deadline !== undefined && { deadline: u.deadline ? new Date(u.deadline) : null }),

@@ -1,5 +1,5 @@
 {
-  "name": "eisenhower-voice-planner",
+  "name": "vocalplan-visiontask",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -20,12 +20,14 @@
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
+    "html2canvas": "^1.4.1",
     "next": "^15.3.0",
     "next-auth": "^5.0.0-beta.30",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hot-toast": "^2.6.0",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",

@@ -8,7 +8,11 @@ import EisenhowerMatrix from "./EisenhowerMatrix";
 import MatrixSkeleton from "./MatrixSkeleton";
 import VoiceNoteList from "./VoiceNoteList";
 import TeamSelector from "./TeamSelector";
-import { Task, TaskCategory, EisenhowerMatrixData, VoiceNote, Team } from "../types";
+import ViewToggle from "./shared/ViewToggle";
+import ExportMenu from "./shared/ExportMenu";
+import KanbanBoard from "./kanban/KanbanBoard";
+import ImageUploader from "./kanban/ImageUploader";
+import { Task, TaskCategory, TaskSource, ViewMode, EisenhowerMatrixData, VoiceNote, Team } from "../types";
 import toast from "react-hot-toast";
 
 export type AIProvider = "gemini" | "glm";
@@ -20,6 +24,7 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [provider, setProvider] = useState<AIProvider>("gemini");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("eisenhower");
   const [teams, setTeams] = useState<Team[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -33,17 +38,25 @@ const App: React.FC = () => {
   });
   const pathname = usePathname();
 
-  // Load AI provider preference from localStorage
+  // Load preferences from localStorage
   useEffect(() => {
     const savedProvider = localStorage.getItem("eisenhower_provider");
     if (savedProvider === "gemini" || savedProvider === "glm") {
       setProvider(savedProvider);
+    }
+    const savedView = localStorage.getItem("preferred_view");
+    if (savedView === "eisenhower" || savedView === "kanban") {
+      setViewMode(savedView);
     }
   }, []);
 
   useEffect(() => {
     localStorage.setItem("eisenhower_provider", provider);
   }, [provider]);
+
+  useEffect(() => {
+    localStorage.setItem("preferred_view", viewMode);
+  }, [viewMode]);
 
   // Fetch user's teams — refetch on mount and every navigation to planner
   useEffect(() => {
@@ -100,7 +113,6 @@ const App: React.FC = () => {
           const data = await res.json();
           setTasks(data);
         } else if (res.status === 403 && selectedTeamId) {
-          // User no longer has access to this team
           setSelectedTeamId(null);
           toast.error("You no longer have access to that team");
         }
@@ -125,12 +137,21 @@ const App: React.FC = () => {
     fetchNotes();
   }, [dateStr, selectedTeamId]);
 
+  const refreshTasks = useCallback(async () => {
+    try {
+      const url = `/api/tasks?date=${dateStr}${selectedTeamId ? `&teamId=${selectedTeamId}` : ""}`;
+      const res = await fetch(url);
+      if (res.ok) setTasks(await res.json());
+    } catch (err) {
+      console.error("Failed to refresh tasks:", err);
+    }
+  }, [dateStr, selectedTeamId]);
+
   const handleRecordingComplete = async (data: EisenhowerMatrixData, audioData: string, duration: string) => {
-    // Build task list from AI analysis
-    const taskBatch: { title: string; category: string; date: string; teamId?: string }[] = [];
+    const taskBatch: { title: string; category: string; date: string; teamId?: string; source: string }[] = [];
     const addBatch = (titles: string[], category: TaskCategory) => {
       titles.forEach(title => {
-        taskBatch.push({ title, category, date: dateStr, teamId: selectedTeamId || undefined });
+        taskBatch.push({ title, category, date: dateStr, teamId: selectedTeamId || undefined, source: TaskSource.VOICE });
       });
     };
 
@@ -139,7 +160,6 @@ const App: React.FC = () => {
     addBatch(data.urgentNotImportant, TaskCategory.URGENT_NOT_IMPORTANT);
     addBatch(data.notUrgentNotImportant, TaskCategory.NOT_URGENT_NOT_IMPORTANT);
 
-    // Save tasks to DB
     if (taskBatch.length > 0) {
       try {
         await fetch("/api/tasks", {
@@ -153,7 +173,6 @@ const App: React.FC = () => {
       }
     }
 
-    // Save voice note to DB
     try {
       await fetch("/api/voice-notes", {
         method: "POST",
@@ -168,7 +187,6 @@ const App: React.FC = () => {
       console.error("Failed to save voice note:", err);
     }
 
-    // Refresh data from server
     const [tasksRes, notesRes] = await Promise.all([
       fetch(`/api/tasks?date=${dateStr}${selectedTeamId ? `&teamId=${selectedTeamId}` : ""}`),
       fetch(`/api/voice-notes?date=${dateStr}`),
@@ -178,12 +196,15 @@ const App: React.FC = () => {
     if (notesRes.ok) setVoiceNotes(await notesRes.json());
   };
 
+  const handleImageAnalysisComplete = useCallback(async (_tasks: unknown[]) => {
+    await refreshTasks();
+  }, [refreshTasks]);
+
   const toggleTask = useCallback(async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
     const newCompleted = !task.completed;
-    // Optimistic update
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: newCompleted } : t));
 
     try {
@@ -193,7 +214,6 @@ const App: React.FC = () => {
         body: JSON.stringify({ tasks: [{ id: taskId, completed: newCompleted }] }),
       });
     } catch {
-      // Revert on failure
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !newCompleted } : t));
     }
   }, [tasks]);
@@ -212,7 +232,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleTasksReorder = useCallback(async (updates: { id: string; category?: string; order: number }[]) => {
-    // Optimistic update
     setTasks(prev => prev.map(t => {
       const u = updates.find(u => u.id === t.id);
       return u ? { ...t, ...(u.category && { category: u.category as TaskCategory }), order: u.order } : t;
@@ -227,6 +246,48 @@ const App: React.FC = () => {
     } catch {
       toast.error("Failed to update task order");
     }
+  }, []);
+
+  const handleKanbanUpdate = useCallback(async (updates: { id: string; assigneeId?: string | null; status?: string; order?: number }[]) => {
+    setTasks(prev => prev.map(t => {
+      const u = updates.find(u => u.id === t.id);
+      return u ? { ...t, ...(u.assigneeId !== undefined && { assigneeId: u.assigneeId }), ...(u.status && { status: u.status as Task["status"] }) } : t;
+    }));
+
+    try {
+      await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: updates }),
+      });
+    } catch {
+      toast.error("Failed to update task");
+    }
+  }, []);
+
+  const handleKanbanTaskCreate = useCallback(async (title: string, assigneeId: string) => {
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          date: dateStr,
+          teamId: selectedTeamId || undefined,
+          assigneeId,
+          source: TaskSource.MANUAL,
+        }),
+      });
+      if (res.ok) {
+        await refreshTasks();
+      }
+    } catch {
+      toast.error("Failed to create task");
+    }
+  }, [dateStr, selectedTeamId, refreshTasks]);
+
+  const handleKanbanTaskUpdate = useCallback((task: Task) => {
+    setTasks(prev => prev.map(t => t.id === task.id ? task : t));
   }, []);
 
   const deleteVoiceNote = useCallback(async (id: string) => {
@@ -267,7 +328,7 @@ const App: React.FC = () => {
     ? teams.find(t => t.id === selectedTeamId)?.name
     : undefined;
 
-  // Map date fields for display (API returns ISO strings, components expect YYYY-MM-DD)
+  // Map date fields for display
   const mappedTasks = tasks.map(t => ({
     ...t,
     date: typeof t.date === "string" ? t.date.split("T")[0] : new Date(t.date).toISOString().split("T")[0],
@@ -293,8 +354,11 @@ const App: React.FC = () => {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AI Organizer</span>
             </div>
           </div>
-          <div className="text-right md:hidden">
-            <p className="text-indigo-600 font-bold text-xs">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+          <div className="flex items-center gap-3">
+            <ViewToggle value={viewMode} onChange={setViewMode} />
+            <div className="text-right md:hidden">
+              <p className="text-indigo-600 font-bold text-xs">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+            </div>
           </div>
         </div>
         <div className="flex items-center justify-between mt-2">
@@ -316,50 +380,85 @@ const App: React.FC = () => {
         onDateChange={setSelectedDate}
       />
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <VoiceRecorder
-          onRecordingComplete={handleRecordingComplete}
-          isProcessing={isProcessing}
-          setIsProcessing={setIsProcessing}
-          provider={provider}
-          onProviderChange={setProvider}
-        />
-
-        <VoiceNoteList
-          voiceNotes={mappedNotes}
-          onDeleteNote={deleteVoiceNote}
-        />
-
-        <div className="mt-4">
-          <div className="flex items-center justify-between mb-8 px-4">
-            <div className="flex items-baseline space-x-2">
-              <h2 className="text-3xl font-black text-slate-900">Priority Grid</h2>
-              <div className="h-1 w-1 bg-slate-300 rounded-full"></div>
-              <span className="text-slate-400 font-medium">{mappedTasks.length} tasks</span>
-            </div>
-            <button
-              onClick={clearDay}
-              className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center space-x-1"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              <span>Clear Day</span>
-            </button>
-          </div>
-
-          {isProcessing ? (
-            <MatrixSkeleton />
-          ) : (
-            <EisenhowerMatrix
-              tasks={mappedTasks}
-              onToggleTask={toggleTask}
-              onDeleteTask={deleteTask}
-              onTasksReorder={handleTasksReorder}
-              teamName={activeTeamName}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {viewMode === "eisenhower" ? (
+          <>
+            <VoiceRecorder
+              onRecordingComplete={handleRecordingComplete}
+              isProcessing={isProcessing}
+              setIsProcessing={setIsProcessing}
+              provider={provider}
+              onProviderChange={setProvider}
             />
-          )}
-        </div>
+
+            <VoiceNoteList
+              voiceNotes={mappedNotes}
+              onDeleteNote={deleteVoiceNote}
+            />
+
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-8 px-4">
+                <div className="flex items-baseline space-x-2">
+                  <h2 className="text-3xl font-black text-slate-900">Priority Grid</h2>
+                  <div className="h-1 w-1 bg-slate-300 rounded-full"></div>
+                  <span className="text-slate-400 font-medium">{mappedTasks.length} tasks</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <ExportMenu tasks={mappedTasks} />
+                  <button
+                    onClick={clearDay}
+                    className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center space-x-1"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span>Clear Day</span>
+                  </button>
+                </div>
+              </div>
+
+              {isProcessing ? (
+                <MatrixSkeleton />
+              ) : (
+                <EisenhowerMatrix
+                  tasks={mappedTasks}
+                  onToggleTask={toggleTask}
+                  onDeleteTask={deleteTask}
+                  onTasksReorder={handleTasksReorder}
+                  teamName={activeTeamName}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <ImageUploader
+              onAnalysisComplete={handleImageAnalysisComplete}
+              isProcessing={isProcessing}
+              setIsProcessing={setIsProcessing}
+              teamId={selectedTeamId}
+            />
+
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-8 px-4">
+                <div className="flex items-baseline space-x-2">
+                  <h2 className="text-3xl font-black text-slate-900">Kanban Board</h2>
+                  <div className="h-1 w-1 bg-slate-300 rounded-full"></div>
+                  <span className="text-slate-400 font-medium">{mappedTasks.length} tasks</span>
+                </div>
+                <ExportMenu tasks={mappedTasks} />
+              </div>
+
+              <KanbanBoard
+                tasks={mappedTasks}
+                onTasksUpdate={handleKanbanUpdate}
+                onTaskCreate={handleKanbanTaskCreate}
+                onTaskDelete={deleteTask}
+                onTaskUpdate={handleKanbanTaskUpdate}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
