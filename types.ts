@@ -15,7 +15,8 @@ export enum TaskStatus {
 export enum TaskSource {
   VOICE = 'VOICE',
   IMAGE = 'IMAGE',
-  MANUAL = 'MANUAL'
+  MANUAL = 'MANUAL',
+  DOCUMENT = 'DOCUMENT'
 }
 
 export enum TeamRole {

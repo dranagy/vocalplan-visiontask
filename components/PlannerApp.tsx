@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import CalendarWheel from "./CalendarWheel";
 import VoiceRecorder from "./VoiceRecorder";
@@ -12,12 +13,17 @@ import ViewToggle from "./shared/ViewToggle";
 import ExportMenu from "./shared/ExportMenu";
 import KanbanBoard from "./kanban/KanbanBoard";
 import ImageUploader from "./kanban/ImageUploader";
+import CopilotDrawer from "./CopilotDrawer";
+import DocumentUploader from "./shared/DocumentUploader";
+import PresenceAvatars from "./shared/PresenceAvatars";
+import { useRealtimeSync } from "@/lib/hooks/useRealtimeSync";
 import { Task, TaskCategory, TaskSource, ViewMode, EisenhowerMatrixData, VoiceNote, Team } from "../types";
 import toast from "react-hot-toast";
 
 export type AIProvider = "gemini" | "glm";
 
 const App: React.FC = () => {
+  const { data: session } = useSession();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [voiceNotes, setVoiceNotes] = useState<VoiceNote[]>([]);
@@ -37,6 +43,23 @@ const App: React.FC = () => {
     }
   });
   const pathname = usePathname();
+
+  const { onlineUsers } = useRealtimeSync({
+    teamId: selectedTeamId,
+    userId: session?.user?.id || "",
+    userName: session?.user?.name || session?.user?.email || "User",
+    onTaskUpdate: useCallback((task: Task) => {
+      setTasks((prev) => {
+        const idx = prev.findIndex((t) => t.id === task.id);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = task;
+          return updated;
+        }
+        return [...prev, task];
+      });
+    }, []),
+  });
 
   // Load preferences from localStorage
   useEffect(() => {
@@ -356,18 +379,27 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
             <ViewToggle value={viewMode} onChange={setViewMode} />
+            {onlineUsers.length > 0 && <PresenceAvatars users={onlineUsers} />}
             <div className="text-right md:hidden">
               <p className="text-indigo-600 font-bold text-xs">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
             </div>
           </div>
         </div>
         <div className="flex items-center justify-between mt-2">
-          <TeamSelector
-            teams={teams}
-            selectedTeamId={selectedTeamId}
-            onTeamChange={setSelectedTeamId}
-            disabled={isProcessing}
-          />
+          <div className="flex items-center gap-3">
+            <TeamSelector
+              teams={teams}
+              selectedTeamId={selectedTeamId}
+              onTeamChange={setSelectedTeamId}
+              disabled={isProcessing}
+            />
+            {onlineUsers.length > 0 && (
+              <div className="hidden md:flex items-center gap-2">
+                <PresenceAvatars users={onlineUsers} />
+                <span className="text-xs text-slate-400">{onlineUsers.length} online</span>
+              </div>
+            )}
+          </div>
           <div className="text-right hidden md:block">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Planning For</p>
             <p className="text-indigo-600 font-bold text-sm">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
@@ -394,6 +426,14 @@ const App: React.FC = () => {
             <VoiceNoteList
               voiceNotes={mappedNotes}
               onDeleteNote={deleteVoiceNote}
+            />
+
+            <DocumentUploader
+              onAnalysisComplete={handleImageAnalysisComplete}
+              isProcessing={isProcessing}
+              setIsProcessing={setIsProcessing}
+              teamId={selectedTeamId}
+              date={dateStr}
             />
 
             <div className="mt-4">
@@ -460,6 +500,7 @@ const App: React.FC = () => {
           </>
         )}
       </div>
+      <CopilotDrawer tasks={mappedTasks} date={dateStr} />
     </div>
   );
 };
