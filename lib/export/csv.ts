@@ -1,17 +1,24 @@
 import { Task, TaskStatus } from "../../types";
 
+function escapeCsvField(field: string): string {
+  if (field.includes(",") || field.includes('"') || field.includes("\n")) {
+    return `"${field.replace(/"/g, '""')}"`;
+  }
+  return field;
+}
+
 export function exportToCSV(tasks: Task[]) {
   const headers = ["Assignee", "Task Title", "Description", "Status", "Deadline", "Source"];
   const rows = tasks.map((t) => [
     t.assigneeId || "Unassigned",
     t.title,
-    (t.description || "").replace(/,/g, ";"),
+    t.description || "",
     t.status,
     t.deadline ? new Date(t.deadline).toLocaleDateString() : "-",
     t.source,
   ]);
 
-  const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
+  const csvContent = [headers.map(escapeCsvField), ...rows.map((row) => row.map(escapeCsvField))].map((e) => e.join(",")).join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

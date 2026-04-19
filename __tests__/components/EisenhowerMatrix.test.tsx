@@ -2,13 +2,13 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import EisenhowerMatrix from "../../components/EisenhowerMatrix";
-import { Task, TaskCategory } from "../../types";
+import { Task, TaskCategory, TaskStatus, TaskSource } from "../../types";
 
 const mockTasks: Task[] = [
-  { id: "1", title: "Fix production bug", category: TaskCategory.URGENT_IMPORTANT, date: "2026-04-13" },
-  { id: "2", title: "Plan vacation", category: TaskCategory.IMPORTANT_NOT_URGENT, date: "2026-04-13" },
-  { id: "3", title: "Reply to spam", category: TaskCategory.URGENT_NOT_IMPORTANT, date: "2026-04-13" },
-  { id: "4", title: "Browse memes", category: TaskCategory.NOT_URGENT_NOT_IMPORTANT, date: "2026-04-13" },
+  { id: "1", title: "Fix production bug", description: "", status: TaskStatus.TODO, source: TaskSource.MANUAL, category: TaskCategory.URGENT_IMPORTANT, date: "2026-04-13" },
+  { id: "2", title: "Plan vacation", description: "", status: TaskStatus.TODO, source: TaskSource.MANUAL, category: TaskCategory.IMPORTANT_NOT_URGENT, date: "2026-04-13" },
+  { id: "3", title: "Reply to spam", description: "", status: TaskStatus.TODO, source: TaskSource.MANUAL, category: TaskCategory.URGENT_NOT_IMPORTANT, date: "2026-04-13" },
+  { id: "4", title: "Browse memes", description: "", status: TaskStatus.TODO, source: TaskSource.MANUAL, category: TaskCategory.NOT_URGENT_NOT_IMPORTANT, date: "2026-04-13" },
 ];
 
 describe("EisenhowerMatrix", () => {

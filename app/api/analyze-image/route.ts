@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     // Save image note
     await prisma.imageNote.create({
       data: {
-        imageUrl: base64Image.substring(0, 100), // Store a reference, not the full base64
+        imageUrl: `image-note-${Date.now()}`, // Store an identifier, not the full base64
         extractedText: data.tasks.map((t) => t.title).join("; "),
         date: new Date(dateStr),
         userId,

@@ -48,7 +48,12 @@ export async function GET(request: NextRequest) {
     where.teamId = null;
   }
 
-  if (status) where.status = status;
+  if (status) {
+    if (!isValidStatus(status)) {
+      return NextResponse.json({ error: `Invalid task status: ${status}` }, { status: 400 });
+    }
+    where.status = status;
+  }
   if (assigneeId) where.assigneeId = assigneeId;
 
   const tasks = await prisma.task.findMany({
@@ -123,8 +128,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "title and date are required" }, { status: 400 });
   }
 
-  const taskCategory = category && isValidCategory(category) ? category : "URGENT_IMPORTANT";
-  const taskStatus = status && isValidStatus(status) ? status : "TODO";
+  if (category && !isValidCategory(category)) {
+    return NextResponse.json({ error: `Invalid task category: ${category}` }, { status: 400 });
+  }
+  if (status && !isValidStatus(status)) {
+    return NextResponse.json({ error: `Invalid task status: ${status}` }, { status: 400 });
+  }
+  const taskCategory = category || "URGENT_IMPORTANT";
+  const taskStatus = status || "TODO";
 
   // Verify team membership before creating a team task
   if (teamId) {
