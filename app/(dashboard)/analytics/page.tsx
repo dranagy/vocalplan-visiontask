@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import StatsCards from "@/components/analytics/StatsCards";
 import CompletionChart from "@/components/analytics/CompletionChart";
 import QuadrantPieChart from "@/components/analytics/QuadrantPieChart";
+import VelocityChart from "@/components/analytics/VelocityChart";
+import BurnoutAlert from "@/components/analytics/BurnoutAlert";
+import AIInsightsCard from "@/components/analytics/AIInsightsCard";
 
 interface AnalyticsData {
   totalTasks: number;
@@ -12,6 +15,10 @@ interface AnalyticsData {
   quadrantDistribution: { category: string; count: number }[];
   overdueCount: number;
   dailyCompletions: { date: string; created: number; completed: number }[];
+  velocityData?: { week: string; created: number; completed: number; velocity: number }[];
+  burnoutRisk?: { level: "low" | "medium" | "high"; reason: string };
+  aiInsights?: string[];
+  teamLoadData?: { assigneeId: string; count: number; completedCount: number }[];
 }
 
 export default function AnalyticsPage() {
@@ -63,6 +70,8 @@ export default function AnalyticsPage() {
             ))}
           </div>
           <div className="h-80 bg-slate-100 rounded-2xl" />
+          <div className="h-80 bg-slate-100 rounded-2xl" />
+          <div className="h-40 bg-slate-100 rounded-2xl" />
         </div>
       ) : (
         <div className="space-y-6">
@@ -73,11 +82,22 @@ export default function AnalyticsPage() {
             overdue={data.overdueCount}
           />
 
+          {data.burnoutRisk && data.burnoutRisk.level !== "low" && (
+            <BurnoutAlert burnoutRisk={data.burnoutRisk} />
+          )}
+
           <CompletionChart data={data.dailyCompletions} />
 
           <QuadrantPieChart data={data.quadrantDistribution} />
+
+          {data.velocityData && data.velocityData.length > 0 && (
+            <VelocityChart data={data.velocityData} />
+          )}
+
+          <AIInsightsCard insights={data.aiInsights || []} loading={loading} />
         </div>
       )}
     </div>
   );
 }
+
