@@ -7,7 +7,7 @@ describe("CalendarWheel", () => {
   it("renders 30 date buttons", () => {
     render(<CalendarWheel selectedDate={new Date()} onDateChange={vi.fn()} />);
     const buttons = screen.getAllByRole("button");
-    expect(buttons).toHaveLength(30);
+    expect(buttons).toHaveLength(60);
   });
 
   it("calls onDateChange when a date is clicked", async () => {

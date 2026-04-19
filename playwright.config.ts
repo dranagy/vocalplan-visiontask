@@ -8,7 +8,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: "list",
   use: {
-    baseURL: "https://eisenhower-voice-planner.vercel.app",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     actionTimeout: 10_000,
