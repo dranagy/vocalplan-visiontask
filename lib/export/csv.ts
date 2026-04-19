@@ -18,7 +18,7 @@ export function exportToCSV(tasks: Task[]) {
     t.source,
   ]);
 
-  const csvContent = [headers, ...rows].map((e) => e.map(escapeCsvField).join(",")).join("\n");
+  const csvContent = [headers.map(escapeCsvField), ...rows.map((row) => row.map(escapeCsvField))].map((e) => e.join(",")).join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
