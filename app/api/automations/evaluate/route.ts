@@ -58,12 +58,25 @@ async function fireAction(
     } else if (actionType === "webhook") {
       const url = config.url;
       if (url) {
-        await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ automation: automationId, task: taskData }),
-          signal: AbortSignal.timeout(5000),
-        }).catch(() => null);
+        let webhookOk = false;
+        try {
+          const webhookRes = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ automation: automationId, task: taskData }),
+            signal: AbortSignal.timeout(5000),
+          });
+          webhookOk = webhookRes.ok;
+        } catch {
+          webhookOk = false;
+        }
+        if (!webhookOk) {
+          await prisma.automationLog.create({
+            data: { automationId, status: "failed", message: `Webhook call to ${url} failed or returned non-2xx` },
+          });
+          await prisma.automation.update({ where: { id: automationId }, data: { lastRunAt: new Date() } });
+          return;
+        }
       }
     }
 

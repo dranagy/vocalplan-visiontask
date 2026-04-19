@@ -25,6 +25,11 @@ export function useRealtimeSync({
 }: UseRealtimeSyncOptions): { onlineUsers: OnlineUser[] } {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const esRef = useRef<EventSource | null>(null);
+  // Keep latest callbacks in refs so the effect doesn't re-run when they change
+  const onTaskUpdateRef = useRef(onTaskUpdate);
+  const onPresenceChangeRef = useRef(onPresenceChange);
+  useEffect(() => { onTaskUpdateRef.current = onTaskUpdate; });
+  useEffect(() => { onPresenceChangeRef.current = onPresenceChange; });
 
   useEffect(() => {
     if (!teamId) {
@@ -44,13 +49,13 @@ export function useRealtimeSync({
           setOnlineUsers((prev) => {
             if (prev.some((u) => u.userId === data.userId)) return prev;
             const updated = [...prev, { userId: data.userId, userName: data.userName }];
-            onPresenceChange?.(updated);
+            onPresenceChangeRef.current?.(updated);
             return updated;
           });
         } else if (data.type === "leave") {
           setOnlineUsers((prev) => {
             const updated = prev.filter((u) => u.userId !== data.userId);
-            onPresenceChange?.(updated);
+            onPresenceChangeRef.current?.(updated);
             return updated;
           });
         } else if (data.type === "connected") {
@@ -60,7 +65,7 @@ export function useRealtimeSync({
             return [...prev, { userId: data.userId, userName: data.userName }];
           });
         } else if (data.type === "task_update" && data.payload) {
-          onTaskUpdate?.(data.payload as Task);
+          onTaskUpdateRef.current?.(data.payload as Task);
         }
       } catch {
         // skip malformed events

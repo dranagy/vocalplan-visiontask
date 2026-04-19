@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Task } from "@/types";
 
 interface ChatMessage {
@@ -24,17 +24,7 @@ export default function CopilotDrawer({ tasks, date }: CopilotDrawerProps) {
   const [streaming, setStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (open && !sessionId) {
-      loadSession();
-    }
-  }, [open, date]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const loadSession = async () => {
+  const loadSession = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/copilot?date=${date}`);
@@ -48,7 +38,17 @@ export default function CopilotDrawer({ tasks, date }: CopilotDrawerProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [date]);
+
+  useEffect(() => {
+    if (open && !sessionId) {
+      loadSession();
+    }
+  }, [open, date, sessionId, loadSession]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim() || !sessionId || streaming) return;
@@ -147,7 +147,7 @@ export default function CopilotDrawer({ tasks, date }: CopilotDrawerProps) {
                 </div>
                 <div>
                   <h2 className="text-white font-black text-base leading-none">AI Copilot</h2>
-                  <p className="text-indigo-200 text-xs mt-0.5">{tasks.length} tasks · {date}</p>
+                  <p className="text-indigo-100 text-xs mt-0.5">{tasks.length} tasks · {date}</p>
                 </div>
               </div>
               <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white transition-colors">

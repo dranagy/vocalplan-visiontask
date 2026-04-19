@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface ChatMessage {
   id: string;
@@ -18,15 +18,7 @@ export default function CopilotPage() {
   const [streaming, setStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadSession();
-  }, [date]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const loadSession = async () => {
+  const loadSession = useCallback(async () => {
     setLoading(true);
     setSessionId(null);
     setMessages([]);
@@ -42,7 +34,11 @@ export default function CopilotPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [date]);
+
+  useEffect(() => {
+    loadSession();
+  }, [loadSession]);
 
   const sendMessage = async () => {
     if (!input.trim() || !sessionId || streaming) return;
